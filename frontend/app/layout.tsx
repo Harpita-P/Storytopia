@@ -13,7 +13,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <head>
+        <link href="https://api.fontshare.com/v2/css?f[]=pally@500&display=swap" rel="stylesheet" />
+      </head>
+      <body style={{ fontFamily: "'Pally', sans-serif" }}>{children}</body>
     </html>
   )
 }

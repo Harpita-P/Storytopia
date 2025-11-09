@@ -25,8 +25,9 @@ export default function Home() {
   const [questData, setQuestData] = useState<any>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string>('')
+  const [characterName, setCharacterName] = useState<string>('')
 
-  const handleCharacterDrawn = async (imageData: string) => {
+  const handleCharacterDrawn = async (imageData: string, characterName: string) => {
     setIsGenerating(true)
     setError('')
     
@@ -36,6 +37,7 @@ export default function Home() {
       const formData = new FormData()
       formData.append('drawing_data', imageData)
       formData.append('user_id', 'demo_user_' + Date.now())
+      formData.append('character_name', characterName)
 
       const response = await fetch(`${apiUrl}/generate-character`, {
         method: 'POST',
@@ -55,7 +57,10 @@ export default function Home() {
       
       setCharacterDrawing(data.drawing_uri)
       setGeneratedCharacter(data.generated_character_uri)
-      setCharacterAnalysis(data.analysis)
+      setCharacterAnalysis({
+        ...data.analysis,
+        character_name: characterName  // Store the user-provided name
+      })
       
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to generate character. Please try again.'
@@ -80,7 +85,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           character_description: characterAnalysis?.character_description || '',
-          character_name: characterAnalysis?.character_type || 'Character',
+          character_name: characterAnalysis?.character_name || characterAnalysis?.character_type || 'Character',
           lesson: lessonId
         })
       })
@@ -102,7 +107,7 @@ export default function Home() {
   }
 
   const handleQuestComplete = (coinsEarned: number) => {
-    // Reset to start
+    // Reset to start - no alert
     setActiveStep('character')
     setCharacterDrawing('')
     setGeneratedCharacter('')
@@ -118,136 +123,178 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-purple-100 to-pink-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-purple-800 mb-4">
-            🌈 Storytopia
+    <main className="min-h-screen p-4" style={{ 
+      backgroundImage: 'url(/storytopia-bg.png)', 
+      backgroundSize: 'cover', 
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed'
+    }}>
+      <div className="max-w-[1800px] mx-auto">
+        <header className="text-center mb-6">
+          <h1 className="text-6xl font-bold text-black mb-3">
+            Storytopia
           </h1>
-          <p className="text-xl text-gray-700">
+          <p className="text-2xl text-gray-800">
             Create your character, choose a lesson, and go on an adventure!
           </p>
         </header>
 
-        {/* Progress Steps */}
-        <div className="flex justify-center mb-8">
-          <div className="bg-white rounded-lg shadow-lg p-2 flex gap-2">
+        {/* Progress Steps - Colorful Bubble Tabs */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-white rounded-full shadow-2xl px-8 py-3 flex gap-3 items-center">
             <button
               onClick={() => setActiveStep('character')}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              className={`px-8 py-3 rounded-full font-bold text-lg transition-all transform hover:scale-105 ${
                 activeStep === 'character'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg scale-110'
+                  : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
               }`}
             >
-              1. Create Character
+              Character Studio
             </button>
             <button
               onClick={() => setActiveStep('lesson')}
               disabled={!generatedCharacter}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              className={`px-8 py-3 rounded-full font-bold text-lg transition-all transform hover:scale-105 ${
                 activeStep === 'lesson'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg scale-110'
+                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+              } disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              2. Choose Lesson
+              Lessons to Explore
             </button>
             <button
               disabled={!questData}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              className={`px-8 py-3 rounded-full font-bold text-lg transition-all transform hover:scale-105 ${
                 activeStep === 'quest'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  ? 'bg-black text-white shadow-lg scale-110'
+                  : 'bg-white text-black border-2 border-black hover:bg-gray-50'
+              } disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100`}
             >
-              3. Play Quest
+              Story Adventure!
             </button>
           </div>
         </div>
 
         {/* Step 1: Character Creation */}
         {activeStep === 'character' && (
-          <div className="bg-white rounded-2xl shadow-2xl p-8">
-            <div className="grid lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-3xl shadow-2xl p-6" style={{ boxShadow: '0 0 40px rgba(251, 191, 36, 0.5), 0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+            <div className="grid grid-cols-2 gap-8 h-[calc(100vh-240px)]">
               {/* Left: Drawing Canvas */}
-              <div>
-                <DrawingCanvas
-                  title="Draw Your Character"
-                  onImageGenerated={handleCharacterDrawn}
-                />
+              <div className="flex flex-col">
+                <h2 className="text-4xl font-bold text-black text-center mb-4 mt-6">
+                  Draw Your Favorite Character!
+                </h2>
+                <div className="flex-1">
+                  <DrawingCanvas
+                    title=""
+                    onImageGenerated={(imageData, name) => {
+                      setCharacterDrawing(imageData)
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Right: Generated Character */}
-              <div className="space-y-4">
-                <h2 className="text-2xl font-semibold text-pink-700">
-                  Your Animated Character
+              <div className="flex flex-col">
+                {/* Character Name Input */}
+                <div className="space-y-2 mb-4">
+                  <label htmlFor="character-name" className="block text-2xl font-semibold text-black">
+                    Give your character a name
+                  </label>
+                  <input
+                    id="character-name"
+                    type="text"
+                    value={characterName}
+                    onChange={(e) => setCharacterName(e.target.value)}
+                    placeholder="Enter character name (e.g., Sparkle, Max, Luna)"
+                    className="w-full px-4 py-3 border-4 border-orange-300 rounded-lg text-xl font-medium focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                    maxLength={20}
+                  />
+                </div>
+
+                {/* Generate Button */}
+                <button
+                  onClick={() => {
+                    if (characterName.trim() && characterDrawing) {
+                      handleCharacterDrawn(characterDrawing, characterName)
+                    }
+                  }}
+                  disabled={!characterName.trim() || !characterDrawing}
+                  className={`w-full text-3xl font-bold py-5 rounded-full transition-all shadow-lg mb-6 ${
+                    characterName.trim() && characterDrawing
+                      ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-white hover:from-orange-600 hover:to-yellow-600 cursor-pointer'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Generate Character
+                </button>
+
+                <h2 className="text-4xl font-bold text-black text-center mb-6 mt-4">
+                  Watch them come to life!
                 </h2>
-                
-                <div className="border-4 border-pink-300 rounded-lg bg-gradient-to-br from-pink-50 to-purple-50 h-[600px] flex items-center justify-center overflow-hidden">
+                <div className="flex-1 relative" style={{ maxHeight: '600px' }}>
+                  <div className="bg-white rounded-3xl border border-gray-300 overflow-hidden shadow-xl h-full">
+                    <div className="flex items-center justify-center h-full p-6">
                   {isGenerating ? (
                     <div className="text-center">
-                      <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-                      <p className="text-lg font-semibold text-purple-700">
+                      <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto mb-4"></div>
+                      <p className="text-2xl font-semibold text-black">
                         Creating your character...
-                      </p>
-                      <p className="text-sm text-gray-600 mt-2">
-                        This may take 30-60 seconds
                       </p>
                     </div>
                   ) : generatedCharacter ? (
-                    <div className="w-full h-full p-4 flex flex-col">
-                      <div className="flex-1 relative">
+                    <div className="w-full h-full p-4 flex flex-col items-center justify-center">
+                      <div className="flex-1 flex items-center justify-center w-full">
                         <img
                           src={generatedCharacter}
                           alt="Generated character"
-                          className="w-full h-full object-contain"
+                          className="max-w-full max-h-full object-contain"
                         />
                       </div>
                       {characterAnalysis && (
-                        <div className="mt-4 bg-white p-4 rounded-lg shadow">
-                          <p className="font-semibold text-purple-700">
-                            {characterAnalysis.character_type}
-                          </p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {characterAnalysis.character_description}
+                        <div className="mt-6">
+                          <p className="text-5xl font-bold text-black text-center">
+                            Hi {characterAnalysis.character_name || characterAnalysis.character_type}!
                           </p>
                         </div>
                       )}
                     </div>
                   ) : error ? (
                     <div className="text-center p-8">
-                      <p className="text-red-600 font-semibold mb-4">❌ {error}</p>
+                      <p className="text-red-600 font-semibold mb-4 text-2xl">❌ {error}</p>
                       <button
                         onClick={handleTryAgain}
-                        className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                        className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800"
                       >
                         Try Again
                       </button>
                     </div>
                   ) : (
                     <div className="text-center p-8">
-                      <p className="text-gray-400 text-lg">
+                      <p className="text-gray-500 text-2xl">
                         Draw your character and click<br />
-                        "Generate Character" to see the magic! ✨
+                        "Generate Character" to see the magic!
                       </p>
                     </div>
                   )}
+                    </div>
+                  </div>
                 </div>
 
                 {generatedCharacter && !isGenerating && (
-                  <div className="flex gap-4">
+                  <div className="flex gap-4 mt-4">
                     <button
                       onClick={handleTryAgain}
-                      className="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+                      className="flex-1 px-8 py-4 bg-black text-white rounded-full text-xl font-bold hover:bg-gray-800 transition-all shadow-lg"
                     >
                       Try Again
                     </button>
                     <button
                       onClick={() => setActiveStep('lesson')}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all"
+                      className="flex-1 px-8 py-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-full text-xl font-bold hover:from-orange-600 hover:to-yellow-600 transition-all shadow-lg"
                     >
-                      Choose Lesson →
+                      Choose Lesson
                     </button>
                   </div>
                 )}
@@ -258,51 +305,49 @@ export default function Home() {
 
         {/* Step 2: Lesson Selection */}
         {activeStep === 'lesson' && (
-          <div className="bg-white rounded-2xl shadow-2xl p-8">
-            <h2 className="text-3xl font-bold text-purple-700 mb-2 text-center">
-              Choose a Lesson
-            </h2>
-            <p className="text-gray-600 mb-8 text-center">
-              What would you like {characterAnalysis?.character_type} to learn today?
-            </p>
-
+          <div className="bg-white rounded-3xl shadow-2xl p-8" style={{ boxShadow: '0 0 40px rgba(251, 191, 36, 0.5), 0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
             {isGenerating ? (
               <div className="text-center py-16">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-                <p className="text-lg font-semibold text-purple-700">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-500 mx-auto mb-4"></div>
+                <p className="text-3xl font-semibold text-orange-600">
                   Creating your quest...
                 </p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <>
+                <h2 className="text-6xl font-bold text-orange-600 mb-10 text-center">
+                  Choose a Lesson
+                </h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {LESSONS.map((lesson) => (
                   <button
                     key={lesson.id}
                     onClick={() => handleLessonSelect(lesson.id)}
-                    className="bg-gradient-to-br from-purple-50 to-pink-50 border-4 border-purple-200 rounded-2xl p-6 hover:border-purple-400 hover:scale-105 transition-all text-left"
+                    className="bg-gradient-to-br from-orange-50 via-yellow-50 to-pink-50 border-4 border-orange-300 rounded-2xl p-8 hover:border-yellow-500 hover:scale-105 transition-all text-left shadow-lg"
                   >
-                    <div className="text-6xl mb-4">{lesson.emoji}</div>
-                    <h3 className="text-xl font-bold text-purple-700 mb-2">
+                    <div className="text-8xl mb-6">{lesson.emoji}</div>
+                    <h3 className="text-4xl font-bold text-amber-700 mb-4">
                       {lesson.title}
                     </h3>
-                    <p className="text-gray-600 text-sm">
+                    <p className="text-gray-800 text-2xl font-medium">
                       {lesson.description}
                     </p>
                   </button>
                 ))}
-              </div>
+                </div>
+              </>
             )}
 
             {error && (
               <div className="mt-8 text-center">
-                <p className="text-red-600 font-semibold">❌ {error}</p>
+                <p className="text-red-600 font-semibold text-2xl">❌ {error}</p>
               </div>
             )}
 
-            <div className="mt-8 text-center">
+            <div className="mt-10 text-center">
               <button
                 onClick={() => setActiveStep('character')}
-                className="px-6 py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600"
+                className="px-8 py-4 bg-black text-white rounded-full text-xl font-bold hover:bg-gray-800 transition-all shadow-lg"
               >
                 ← Back to Character
               </button>

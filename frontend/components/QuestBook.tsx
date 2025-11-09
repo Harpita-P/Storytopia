@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Coins } from 'lucide-react'
 
 interface QuestScene {
@@ -33,11 +33,24 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
   const [selectedOption, setSelectedOption] = useState<'a' | 'b' | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
   const [sceneCompleted, setSceneCompleted] = useState<boolean[]>(new Array(8).fill(false))
+  const [countdown, setCountdown] = useState<number>(0)
+  const [isFlipping, setIsFlipping] = useState(false)
 
   const currentScene = scenes[currentPage]
   const isFirstPage = currentPage === 0
   const isLastPage = currentPage === scenes.length - 1
   const allScenesCompleted = sceneCompleted.every(completed => completed)
+
+  // Preload next scene image to prevent glitches
+  useEffect(() => {
+    if (currentPage < scenes.length - 1) {
+      const nextScene = scenes[currentPage + 1]
+      if (nextScene?.image_uri) {
+        const img = new Image()
+        img.src = nextScene.image_uri
+      }
+    }
+  }, [currentPage, scenes])
 
   const handleOptionClick = (option: 'a' | 'b') => {
     if (sceneCompleted[currentPage]) return // Already completed this scene
@@ -54,23 +67,43 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
       newCompleted[currentPage] = true
       setSceneCompleted(newCompleted)
       
-      // Auto-advance after 2 seconds
+      // Start countdown from 8
+      setCountdown(8)
+      
+      // Countdown timer
+      const countdownInterval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      
+      // Auto-advance after 8 seconds
       setTimeout(() => {
+        clearInterval(countdownInterval)
         if (!isLastPage) {
           goToNextPage()
         } else {
           // Quest complete!
           onQuestComplete(coinsEarned + 1)
         }
-      }, 2000)
+      }, 8000)
     }
   }
 
   const goToNextPage = () => {
     if (!isLastPage) {
-      setCurrentPage(prev => prev + 1)
-      setSelectedOption(null)
-      setShowFeedback(false)
+      setIsFlipping(true)
+      setTimeout(() => {
+        setCurrentPage(prev => prev + 1)
+        setSelectedOption(null)
+        setShowFeedback(false)
+        setCountdown(0)
+        setTimeout(() => setIsFlipping(false), 100)
+      }, 600) // Match animation duration
     }
   }
 
@@ -93,9 +126,9 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-start justify-center pt-8 p-4">
       {/* Picture Book Container */}
-      <div className="relative w-full max-w-4xl">
+      <div className="relative w-full max-w-[1400px]">
         
         {/* Coin Counter */}
         <div className="absolute -top-16 right-0 bg-yellow-400 text-yellow-900 px-6 py-3 rounded-full shadow-lg flex items-center gap-2 font-bold text-xl z-10">
@@ -104,12 +137,27 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
         </div>
 
         {/* Book Page */}
-        <div className="bg-white rounded-3xl shadow-2xl border-8 border-amber-200 overflow-hidden">
+        <div className={`bg-white rounded-3xl shadow-2xl border-8 border-amber-200 overflow-hidden transition-all duration-600 ${
+          isFlipping ? 'animate-page-flip' : ''
+        }`}
+        style={{
+          transformStyle: 'preserve-3d',
+          perspective: '1000px'
+        }}>
           
           {/* Page Header */}
-          <div className="bg-gradient-to-r from-purple-400 to-pink-400 text-white px-8 py-4">
-            <h2 className="text-2xl font-bold text-center">{questTitle}</h2>
-            <p className="text-center text-sm opacity-90 mt-1">
+          <div className="bg-yellow-50 text-black px-12 py-4 relative overflow-hidden">
+            {/* Light sweep animation - moving across and around */}
+            <div className="absolute inset-0 pointer-events-none">
+              {/* Main light beam moving diagonally */}
+              <div className="absolute w-64 h-64 bg-gradient-radial from-yellow-300/60 via-yellow-200/30 to-transparent rounded-full blur-3xl animate-light-sweep"></div>
+              {/* Secondary glow */}
+              <div className="absolute w-48 h-48 bg-gradient-radial from-white/50 via-yellow-100/20 to-transparent rounded-full blur-2xl animate-light-sweep" style={{ animationDelay: '0.3s' }}></div>
+              {/* Trailing sparkle */}
+              <div className="absolute w-32 h-32 bg-gradient-radial from-yellow-400/40 via-yellow-300/15 to-transparent rounded-full blur-xl animate-light-sweep" style={{ animationDelay: '0.6s' }}></div>
+            </div>
+            <h2 className="text-5xl font-bold text-center relative z-10 text-black">{questTitle}</h2>
+            <p className="text-center text-xl opacity-70 mt-1 text-black">
               Page {currentPage + 1} of {scenes.length}
             </p>
           </div>
@@ -117,13 +165,19 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
           {/* Scene Content */}
           <div className="relative">
             
-            {/* Scene Image - Full width background */}
-            <div className="relative w-full h-96 bg-gradient-to-b from-blue-50 to-purple-50">
+            {/* Scene Image with Text Overlay - Like a real storybook */}
+            <div className="relative w-full h-[800px] bg-gradient-to-b from-blue-50 to-purple-50">
               {currentScene.image_uri ? (
                 <img 
+                  key={`scene-${currentScene.scene_number}-${currentScene.image_uri}`}
                   src={currentScene.image_uri} 
                   alt={`Scene ${currentScene.scene_number}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-opacity duration-300 ease-in-out"
+                  loading="eager"
+                  onLoad={(e) => {
+                    e.currentTarget.style.opacity = '1'
+                  }}
+                  style={{ opacity: 0 }}
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
@@ -133,9 +187,23 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                 </div>
               )}
               
-              {/* Scene Number Badge */}
-              <div className="absolute top-4 left-4 bg-white rounded-full w-12 h-12 flex items-center justify-center shadow-lg">
-                <span className="text-2xl font-bold text-purple-600">{currentScene.scene_number}</span>
+              {/* Scene Number Badge - Cute top left corner with subtle float */}
+              <div className="absolute top-6 left-6 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl w-16 h-16 flex items-center justify-center shadow-xl border-4 border-white animate-float-subtle">
+                <span className="text-3xl font-bold text-white">{currentScene.scene_number}</span>
+              </div>
+
+              {/* Folded Corner - Top Right - LARGE & PROMINENT */}
+              <div className="absolute top-0 right-0 z-20">
+                {/* Main fold triangle - EXTRA LARGE */}
+                <div className="w-0 h-0 border-t-[150px] border-t-amber-200 border-l-[150px] border-l-transparent shadow-2xl drop-shadow-2xl"></div>
+                {/* Inner shadow for depth */}
+                <div className="absolute top-0 right-0 w-0 h-0 border-t-[150px] border-t-amber-400/60 border-l-[150px] border-l-transparent"></div>
+                {/* Dark shadow edge */}
+                <div className="absolute top-0 right-0 w-0 h-0 border-t-[150px] border-t-black/20 border-l-[150px] border-l-transparent"></div>
+                {/* "Flip!" text - ROTATED RIGHT */}
+                <div className="absolute top-6 right-6 transform rotate-[35deg]">
+                  <span className="text-4xl font-black text-amber-800 animate-pulse drop-shadow-lg">Flip!</span>
+                </div>
               </div>
 
               {/* Completion Badge */}
@@ -145,21 +213,21 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                   <span className="font-bold">+1</span>
                 </div>
               )}
-            </div>
 
-            {/* Text Content Overlay */}
-            <div className="p-8 space-y-6">
-              
-              {/* Scenario */}
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-purple-200">
-                <p className="text-lg leading-relaxed text-gray-800 font-medium">
+              {/* Story Text Overlay - Like a real storybook */}
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent pt-24 pb-6 px-12">
+                <p className="text-white text-5xl leading-relaxed font-bold drop-shadow-lg text-center">
                   {currentScene.scenario}
                 </p>
               </div>
+            </div>
+
+            {/* Question and Options Below Image */}
+            <div className="p-8 space-y-6">
 
               {/* Question */}
               <div className="text-center">
-                <h3 className="text-2xl font-bold text-purple-700 mb-6">
+                <h3 className="text-4xl font-bold text-black mb-8">
                   {currentScene.question}
                 </h3>
               </div>
@@ -172,16 +240,16 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                     onClick={() => handleOptionClick('a')}
                     disabled={sceneCompleted[currentPage]}
                     className={`
-                      p-6 rounded-2xl border-4 font-semibold text-lg transition-all
+                      p-4 rounded-2xl border-4 font-semibold text-xl transition-all
                       ${sceneCompleted[currentPage] 
                         ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50' 
-                        : 'bg-green-50 border-green-300 hover:bg-green-100 hover:border-green-400 hover:scale-105 cursor-pointer'
+                        : 'bg-orange-50 border-orange-300 hover:bg-orange-100 hover:border-orange-400 hover:scale-105 cursor-pointer'
                       }
                     `}
                   >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl font-bold text-green-600">A</span>
-                      <span className="text-gray-800 text-left">{currentScene.option_a.text}</span>
+                    <div className="flex items-start gap-4">
+                      <span className="text-4xl font-bold text-orange-600">A</span>
+                      <span className="text-gray-800 text-left text-3xl">{currentScene.option_a.text}</span>
                     </div>
                   </button>
 
@@ -190,16 +258,16 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                     onClick={() => handleOptionClick('b')}
                     disabled={sceneCompleted[currentPage]}
                     className={`
-                      p-6 rounded-2xl border-4 font-semibold text-lg transition-all
+                      p-4 rounded-2xl border-4 font-semibold text-xl transition-all
                       ${sceneCompleted[currentPage]
                         ? 'bg-gray-100 border-gray-300 cursor-not-allowed opacity-50'
-                        : 'bg-red-50 border-red-300 hover:bg-red-100 hover:border-red-400 hover:scale-105 cursor-pointer'
+                        : 'bg-yellow-50 border-yellow-300 hover:bg-yellow-100 hover:border-yellow-400 hover:scale-105 cursor-pointer'
                       }
                     `}
                   >
-                    <div className="flex items-start gap-3">
-                      <span className="text-2xl font-bold text-red-600">B</span>
-                      <span className="text-gray-800 text-left">{currentScene.option_b.text}</span>
+                    <div className="flex items-start gap-4">
+                      <span className="text-4xl font-bold text-yellow-600">B</span>
+                      <span className="text-gray-800 text-left text-3xl">{currentScene.option_b.text}</span>
                     </div>
                   </button>
                 </div>
@@ -212,12 +280,17 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                     : 'bg-orange-50 border-orange-400'
                   }
                 `}>
-                  <div className="text-6xl mb-4">
-                    {isCorrectAnswer() ? '🌟' : '💭'}
+                  <div className="flex items-center justify-between">
+                    <p className="text-3xl font-semibold text-gray-800">
+                      {getFeedback()}{isCorrectAnswer() ? ' :)' : ' :('}
+                    </p>
+                    {isCorrectAnswer() && countdown > 0 && (
+                      <div className="flex items-center gap-4 text-black">
+                        <p className="text-lg font-medium">Next quest:</p>
+                        <div className="text-4xl font-bold">{countdown}</div>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-xl font-semibold text-gray-800">
-                    {getFeedback()}
-                  </p>
                   {!isCorrectAnswer() && (
                     <button
                       onClick={() => {
@@ -234,25 +307,8 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
             </div>
           </div>
 
-          {/* Navigation Arrows */}
-          <div className="flex justify-between items-center px-8 py-6 bg-gradient-to-r from-purple-50 to-pink-50 border-t-4 border-purple-200">
-            
-            {/* Previous Button */}
-            <button
-              onClick={goToPreviousPage}
-              disabled={isFirstPage}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all
-                ${isFirstPage
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-purple-500 text-white hover:bg-purple-600 hover:scale-105 shadow-lg'
-                }
-              `}
-            >
-              <ChevronLeft className="w-6 h-6" />
-              <span>Previous</span>
-            </button>
-
+          {/* Progress Indicator */}
+          <div className="flex justify-center items-center px-8 py-6 bg-gradient-to-r from-purple-50 to-pink-50 border-t-4 border-purple-200">
             {/* Progress Dots */}
             <div className="flex gap-2">
               {scenes.map((_, index) => (
@@ -261,31 +317,15 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
                   className={`
                     w-3 h-3 rounded-full transition-all
                     ${index === currentPage 
-                      ? 'bg-purple-600 w-8' 
+                      ? 'bg-pink-500 w-8' 
                       : sceneCompleted[index]
-                      ? 'bg-green-500'
+                      ? 'bg-orange-500'
                       : 'bg-gray-300'
                     }
                   `}
                 />
               ))}
             </div>
-
-            {/* Next Button */}
-            <button
-              onClick={goToNextPage}
-              disabled={isLastPage || !sceneCompleted[currentPage]}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-full font-bold text-lg transition-all
-                ${(isLastPage || !sceneCompleted[currentPage])
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-purple-500 text-white hover:bg-purple-600 hover:scale-105 shadow-lg'
-                }
-              `}
-            >
-              <span>Next</span>
-              <ChevronRight className="w-6 h-6" />
-            </button>
           </div>
         </div>
 
@@ -293,16 +333,13 @@ export default function QuestBook({ questTitle, characterName, scenes, onQuestCo
         {allScenesCompleted && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-3xl">
             <div className="bg-white rounded-3xl p-12 text-center shadow-2xl max-w-md">
-              <div className="text-8xl mb-4">🎉</div>
-              <h2 className="text-4xl font-bold text-purple-700 mb-4">
+              <div className="text-8xl mb-4">🐻</div>
+              <h2 className="text-4xl font-bold text-purple-700 mb-6">
                 Quest Complete!
               </h2>
-              <p className="text-xl text-gray-700 mb-6">
-                {characterName} learned so much!
-              </p>
-              <div className="bg-yellow-100 rounded-full px-8 py-4 inline-flex items-center gap-3 mb-6">
-                <Coins className="w-8 h-8 text-yellow-600" />
-                <span className="text-3xl font-bold text-yellow-700">{coinsEarned} Coins Earned!</span>
+              <div className="bg-amber-100 rounded-full px-8 py-4 inline-flex items-center gap-3 mb-6">
+                <span className="text-5xl">🍯</span>
+                <span className="text-3xl font-bold text-amber-700">{coinsEarned} Honey Jars Earned!</span>
               </div>
               <button
                 onClick={() => onQuestComplete(coinsEarned)}

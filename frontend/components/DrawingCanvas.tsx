@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react'
 import { Undo, Eraser, Trash2, Upload } from 'lucide-react'
 
 interface DrawingCanvasProps {
-  onImageGenerated?: (imageData: string) => void
+  onImageGenerated?: (imageData: string, characterName: string) => void
   title: string
 }
 
@@ -24,6 +24,7 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
   const [isEraser, setIsEraser] = useState(false)
   const [history, setHistory] = useState<ImageData[]>([])
   const [historyStep, setHistoryStep] = useState(-1)
+  const [characterName, setCharacterName] = useState('')
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -32,8 +33,8 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Set canvas size
-    canvas.width = 600
+    // Set canvas size - larger dimensions
+    canvas.width = 900
     canvas.height = 600
 
     // Fill with white background
@@ -53,9 +54,14 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
     const newHistory = history.slice(0, historyStep + 1)
-    newHistory.push(imageData)
-    setHistory(newHistory)
-    setHistoryStep(newHistory.length - 1)
+    setHistory([...newHistory, imageData])
+    setHistoryStep(newHistory.length)
+    
+    // Notify parent of drawing change
+    if (onImageGenerated) {
+      const dataUrl = canvas.toDataURL('image/png')
+      onImageGenerated(dataUrl, '')
+    }
   }
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -63,8 +69,10 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
     if (!canvas) return
 
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -84,8 +92,10 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
     if (!ctx) return
 
     const rect = canvas.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const x = (e.clientX - rect.left) * scaleX
+    const y = (e.clientY - rect.top) * scaleY
 
     ctx.lineTo(x, y)
     ctx.strokeStyle = isEraser ? '#FFFFFF' : currentColor
@@ -182,126 +192,109 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
   }
 
   const handleGenerateImage = () => {
+    if (!characterName.trim()) {
+      alert('Please give your character a name!')
+      return
+    }
     const imageData = getCanvasData()
     if (onImageGenerated) {
-      onImageGenerated(imageData)
+      onImageGenerated(imageData, characterName.trim())
     }
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-2xl font-semibold text-purple-700">{title}</h2>
+    <div className="space-y-2 h-full flex flex-col">
+      {title && <h2 className="text-2xl font-bold text-purple-700 text-center">{title}</h2>}
 
-      {/* Canvas */}
-      <div className="border-4 border-purple-300 rounded-lg bg-white overflow-hidden">
-        <canvas
-          ref={canvasRef}
-          onMouseDown={startDrawing}
-          onMouseMove={draw}
-          onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
-          className="cursor-crosshair w-full h-auto"
-          style={{ touchAction: 'none' }}
-        />
+      {/* Canvas - iPad-like rounded rectangle */}
+      <div className="flex-1 relative flex items-center justify-center mb-2">
+        <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-300">
+          <canvas
+            ref={canvasRef}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+            className="cursor-crosshair block"
+            style={{ touchAction: 'none', width: '900px', height: '600px' }}
+          />
+        </div>
       </div>
 
       {/* Color Palette */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <p className="text-sm font-semibold mb-2">Colors:</p>
-        <div className="grid grid-cols-10 gap-2">
-          {COLORS.map((color) => {
-            // Test: Show crayon for pink color
-            if (color === '#FFC0CB') {
-              return (
-                <button
-                  key={color}
-                  onClick={() => {
-                    setCurrentColor(color)
-                    setIsEraser(false)
-                  }}
-                  className={`w-12 h-12 transition-transform hover:scale-110 ${
-                    currentColor === color && !isEraser ? 'scale-110' : ''
-                  }`}
-                  title="Pink"
-                >
-                  <img 
-                    src="/crayons/pink.png" 
-                    alt="Pink crayon"
-                    className="w-full h-full object-contain"
-                  />
-                </button>
-              )
-            }
-            
-            return (
-              <button
-                key={color}
-                onClick={() => {
-                  setCurrentColor(color)
-                  setIsEraser(false)
-                }}
-                className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${
-                  currentColor === color && !isEraser
-                    ? 'border-blue-500 scale-110'
-                    : 'border-gray-300'
-                }`}
-                style={{ backgroundColor: color }}
-                title={color}
-              />
-            )
-          })}
+        <p className="text-xl font-semibold mb-3">Colors:</p>
+        <div className="grid grid-cols-10 gap-3">
+          {COLORS.map((color) => (
+            <button
+              key={color}
+              onClick={() => {
+                setCurrentColor(color)
+                setIsEraser(false)
+              }}
+              className={`w-12 h-12 rounded-full border-3 transition-all ${
+                currentColor === color
+                  ? 'border-purple-500 scale-110'
+                  : 'border-gray-300 hover:scale-105'
+              }`}
+              style={{ backgroundColor: color }}
+              title={color}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Brush Size */}
+      {/* Brush Size Slider */}
       <div className="bg-white p-4 rounded-lg shadow">
-        <p className="text-sm font-semibold mb-2">Brush Size: {brushSize}px</p>
+        <label className="block text-xl font-semibold mb-3">
+          Brush Size: {brushSize}px
+        </label>
         <input
           type="range"
           min="1"
           max="20"
           value={brushSize}
           onChange={(e) => setBrushSize(Number(e.target.value))}
-          className="w-full"
+          className="w-full h-3"
         />
       </div>
 
       {/* Tools */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-3 flex-wrap">
         <button
           onClick={() => setIsEraser(!isEraser)}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-colors ${
+          className={`flex items-center gap-3 px-6 py-3 rounded-lg text-xl font-semibold transition-colors ${
             isEraser
               ? 'bg-orange-500 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          <Eraser size={20} />
+          <Eraser size={28} />
           Eraser
         </button>
 
         <button
           onClick={undo}
           disabled={historyStep <= 0}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-3 px-6 py-3 bg-blue-500 text-white rounded-lg text-xl font-semibold hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          <Undo size={20} />
+          <Undo size={28} />
           Undo
         </button>
 
         <button
           onClick={clearCanvas}
-          className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-colors"
+          className="flex items-center gap-3 px-6 py-3 bg-red-500 text-white rounded-lg text-xl font-semibold hover:bg-red-600 transition-colors"
         >
-          <Trash2 size={20} />
+          <Trash2 size={28} />
           Clear
         </button>
 
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors"
+          className="flex items-center gap-3 px-6 py-3 bg-green-500 text-white rounded-lg text-xl font-semibold hover:bg-green-600 transition-colors"
         >
-          <Upload size={20} />
+          <Upload size={28} />
           Upload Image
         </button>
 
@@ -315,13 +308,6 @@ export default function DrawingCanvas({ onImageGenerated, title }: DrawingCanvas
         />
       </div>
 
-      {/* Generate Button */}
-      <button
-        onClick={handleGenerateImage}
-        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg font-bold py-4 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg"
-      >
-        ✨ Generate Character ✨
-      </button>
     </div>
   )
 }
