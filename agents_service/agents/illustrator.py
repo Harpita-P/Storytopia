@@ -22,18 +22,19 @@ from tools.imagen_tool import generate_scene_image
 
 def generate_all_scene_illustrations(quest_json: str, character_description: str) -> str:
     """
-    Tool function: Generates ONLY the first 4 scene illustrations
-    Returns immediately so user can start playing
-    Scenes 5-8 will have empty image_uri and load later
+    Tool function: Generates all 8 scene illustrations for the quest
+    Generates first 4 scenes immediately, then waits 2 minutes before generating remaining 4
     
     Args:
         quest_json: JSON string of the quest data with 8 scenes
         character_description: Full character description for consistency
     
     Returns:
-        JSON string with image URIs for first 4 scenes, empty for scenes 5-8
+        JSON string with image URIs for all 8 scenes
     """
     try:
+        import time
+        
         print(f"[Illustrator Tool] Starting illustration generation...")
         
         # Parse quest data
@@ -48,8 +49,8 @@ def generate_all_scene_illustrations(quest_json: str, character_description: str
         
         image_uris = []
         
-        # Generate ONLY FIRST 4 scenes (for immediate return)
-        print(f"[Illustrator Tool] ⚡ Generating scenes 1-4 for immediate playback...")
+        # Generate FIRST 4 scenes immediately
+        print(f"[Illustrator Tool] ⚡ BATCH 1: Generating scenes 1-4 (immediate)...")
         for i, scene in enumerate(scenes[:4], 1):
             print(f"[Illustrator Tool] Generating scene {i}/8...")
             
@@ -83,26 +84,57 @@ def generate_all_scene_illustrations(quest_json: str, character_description: str
                     "error": str(e)
                 })
         
-        # Add EMPTY placeholders for scenes 5-8 (will be generated later)
-        print(f"[Illustrator Tool] Adding placeholders for scenes 5-8 (will generate later)...")
-        for i in range(5, 9):
-            image_uris.append({
-                "scene_number": i,
-                "image_uri": "",  # Empty - will be generated later
-                "prompt_used": scenes[i-1].get("image_prompt", "")
-            })
+        print(f"[Illustrator Tool] ✅ First 4 scenes complete! User can start reading now.")
+        
+        # WAIT 2 minutes before generating remaining scenes (rate limit management)
+        wait_time = 120  # 2 minutes
+        print(f"[Illustrator Tool] ⏳ Waiting {wait_time} seconds before generating scenes 5-8...")
+        print(f"[Illustrator Tool] 💡 User can interact with first 4 scenes during this time!")
+        time.sleep(wait_time)
+        
+        # Generate REMAINING 4 scenes
+        print(f"[Illustrator Tool] ⚡ BATCH 2: Generating scenes 5-8...")
+        for i, scene in enumerate(scenes[4:], 5):
+            print(f"[Illustrator Tool] Generating scene {i}/8...")
+            
+            # Get the image prompt from the scene
+            image_prompt = scene.get("image_prompt", "")
+            
+            # Enhance prompt with character description for consistency
+            enhanced_prompt = f"{image_prompt}\n\nCharacter consistency note: {character_description}"
+            
+            try:
+                # Generate the image
+                image_uri = generate_scene_image(
+                    prompt=enhanced_prompt,
+                    character_description=character_description
+                )
+                
+                image_uris.append({
+                    "scene_number": i,
+                    "image_uri": image_uri,
+                    "prompt_used": image_prompt
+                })
+                
+                print(f"[Illustrator Tool] ✅ Scene {i} complete: {image_uri}")
+            except Exception as e:
+                print(f"[Illustrator Tool] ⚠️ Scene {i} failed: {str(e)}")
+                # Add placeholder for failed scene
+                image_uris.append({
+                    "scene_number": i,
+                    "image_uri": "",
+                    "prompt_used": image_prompt,
+                    "error": str(e)
+                })
         
         result = {
             "success": True,
             "character_description": character_description,
             "scene_images": image_uris,
-            "total_scenes": len(image_uris),
-            "partial": True,  # Indicates scenes 5-8 not yet generated
-            "ready_scenes": 4  # First 4 scenes are ready
+            "total_scenes": len(image_uris)
         }
         
-        print(f"[Illustrator Tool] ✅ First 4 scenes complete! Returning to user NOW.")
-        print(f"[Illustrator Tool] 💡 Scenes 5-8 will show loading state in UI.")
+        print(f"[Illustrator Tool] 🎉 All 8 scenes generated successfully!")
         return json.dumps(result)
         
     except Exception as e:

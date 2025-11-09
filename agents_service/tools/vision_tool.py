@@ -108,25 +108,22 @@ def create_character_prompt(analysis: Dict[str, Any]) -> str:
     style = analysis.get("artistic_style", "cartoon")
     
     prompt = f"""
-    Create an animated cartoon {character_type} character for a children's storybook game, in the style of Disney/Pixar animated movies.
+    Create a cute, friendly, animated {character_type} character for a children's story.
     
     Character details: {description}
     
-    IMPORTANT: This is an ANIMATED CARTOON CHARACTER (not a real person) for a children's educational game (ages 4-10).
+    Style: Pixar-style 3D animation, colorful, child-friendly, expressive, appealing
+    Colors: Incorporate {colors}
+    Mood: Warm, inviting, magical
     
-    Style requirements:
-    - Fully animated/cartoon style like Disney movies (Frozen, Moana, Encanto)
-    - Stylized, exaggerated features (big eyes, simplified shapes)
-    - Bright, vibrant colors
-    - Friendly, expressive face
-    - Simple, clean design
-    - Standing in a neutral, welcoming pose
-    - Plain or simple background
+    The character should be:
+    - Appropriate for children ages 4-10
+    - Expressive and friendly
+    - High quality, professional animation style
+    - Standing in a neutral pose
+    - On a simple, clean background
     
-    Colors to incorporate: {colors}
-    Mood: Cheerful, playful, magical
-    
-    Art style: 3D animated character like Pixar/Disney films - NOT realistic, fully stylized cartoon animation for children's entertainment.
+    Art style: Similar to Disney/Pixar animated films, vibrant colors, soft lighting
     """
     
     return prompt.strip()
