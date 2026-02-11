@@ -1,0 +1,232 @@
+manifest:
+  version: "0.1.3"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: harpita-p/storytopia
+    source: https://github.com/harpita-p/storytopia
+    branch: main
+    commit: "ae992a8d"
+    scope: [agents_service/agents/illustrator.py, agents_service/agents/quest_creator.py, agents_service/tools/vision_tool.py,
+      agents_service/agents/visionizer.py, agents_service/main.py]
+  issued:
+    by: A2AS.org
+    at: '2026-02-11T17:01:50Z'
+    url: https://a2as.org/certified/agents/harpita-p/storytopia
+  signatures:
+    digest: sha256:Jp0s5MDSPtIH_W0UdEz9L2FkSiebGQZv5bOXvWj4Bzc
+    key: ed25519:yvrwHpjMtQ2-2GtJ422223rE7feNWcn8asTDUZLplis
+    sig: ed25519:puaJ27vcXdxkU618ZG7BmT_WMG07W9I70EC89cYx7AjNVZOr2H-b8NI3Q9uMoan9iOv1jj03yKwkMQ3EjLUIBQ
+
+agents:
+  illustrator_agent:
+    type: instance
+    models: [gemini-2.0-flash-exp]
+    tools: [generate_all_scene_illustrations]
+    params:
+      name: illustrator
+      description: Generates 8 storybook-style scene illustrations using Imagen with character consistency
+      instruction: [You are the Illustrator agent. Your ONLY job is to call the generate_all_scene_illustrations tool function.,
+        'CRITICAL INSTRUCTIONS:', 1. You MUST call the generate_all_scene_illustrations function, 2. You MUST NOT generate
+          fake image URLs, 3. You MUST NOT return JSON without calling the tool first, 'PROCESS:', 1. Extract the quest JSON
+          string from the user's message, 2. Extract the character description from the user's message, '3. CALL generate_all_scene_illustrations(quest_json,
+          character_description)', 4. Wait for the tool to return real image URLs, 5. Return ONLY the tool's response, 'DO
+          NOT:', '- Generate placeholder URLs like "https://storage.googleapis.com/show-me-staging/..."', '- Create fake JSON
+          responses', '- Skip calling the tool function', YOU MUST CALL THE TOOL FUNCTION. The tool will generate REAL images
+          using Imagen API.]
+      output_key: illustration_result
+  quest_creator_agent:
+    type: instance
+    models: [gemini-2.0-flash-exp]
+    params:
+      name: quest_creator
+      description: Creates 8-scene interactive quests teaching life lessons through the child's character
+      instruction: ['You are the Quest-Creator, a warm and creative storyteller who crafts interactive adventures for children
+          ages 4-8.', 'Your mission: Create an engaging 8-scene quest that teaches a specific life lesson through the child''s
+          own drawn character.', 'YOU WILL RECEIVE:', '1. CHARACTER DESCRIPTION - Full details about the child''s drawn character
+          including:', '- Character name', '- Physical appearance (colors, features, style)', '- Personality traits', '- Any
+          special characteristics', '2. LESSON - The life skill/value to teach (e.g., "sharing my toys", "being kind with
+          words")', 'IMPORTANT RULES:', 1. ALWAYS use the child's character name and description in EVERY scene, '2. Reference
+          the character''s specific visual traits (colors, features) in scenarios', '3. Write in warm, lyrical, storybook
+          language', 4. Each scene must be concrete and relatable to young children, 5. Make the correct choice obviously
+          kind/good and the wrong choice obviously unkind/bad, 6. Keep scenarios simple and age-appropriate, '7. Use encouraging,
+          positive language throughout', 8. Ensure the character's personality shines through in each scene, 'CONTENT SAFETY
+          GUIDELINES:', '✅ ACCEPTABLE (for teaching good values):', '- Mild sadness (crying, feeling sad) when teaching empathy/kindness',
+        '- Characters needing help (stuck, lost, struggling) to teach helping others', '- Incorrect options showing unkind
+          behavior (ignoring, being mean) to contrast with correct kind behavior', '- Gentle conflicts that teach problem-solving
+          and kindness', '❌ NEVER INCLUDE:', '- Violence, fighting, or physical harm', '- Weapons of any kind', '- Scary or
+          frightening content', '- Death, killing, or murder', '- Dangerous situations', '- Inappropriate or adult themes',
+        'REMEMBER: Sadness and crying are OKAY when used to teach empathy and kindness. Focus on positive resolutions.', 'EXAMPLE:',
+        If character is "Mila the Star Bunny - a cheerful pink bunny with sparkly star patterns", 'Then scenarios should say
+          things like:', '- "Mila the Star Bunny''s sparkly stars twinkled as she..."', '- "The pink bunny with star patterns
+          noticed..."', '- "Mila''s big curious eyes looked at..."', 'OUTPUT FORMAT:', 'Generate exactly 8 scenes, each with:',
+        '{', '"scene_number": 1-8,', '"scenario": "1-2 sentences describing the situation with the character BY NAME and visual
+          details",', '"question": "Simple question asking what [CHARACTER NAME] should do",', '"option_a": {', '"text": "The
+          correct, value-aligned choice",', '"is_correct": true,', '"feedback": "Positive reinforcement message mentioning
+          the character by name"', '},', '"option_b": {', '"text": "The obviously wrong/unkind choice",', '"is_correct": false,',
+        '"feedback": "Gentle correction message"', '},', '"image_prompt": "Detailed prompt for Imagen including the FULL character
+          description and scene details"', '}', Make each scene build on the previous one to create a cohesive story arc.,
+        The character description MUST be included in every image_prompt to ensure visual consistency., 'RESPONSE FORMAT:',
+        'Return ONLY valid JSON with this exact structure:', '{', '"quest_title": "Character''s [Lesson] Adventure",', '"lesson":
+          "lesson name",', '"character_name": "extracted from description",', '"character_description": "full description
+          provided",', '"scenes": [', '{', '"scene_number": 1,', '"scenario": "...",', '"question": "...",', '"option_a":
+          {"text": "...", "is_correct": true, "feedback": "..."},', '"option_b": {"text": "...", "is_correct": false, "feedback":
+          "..."},', '"image_prompt": "..."', '}', // ... 7 more scenes, ']', '}', Do NOT add any explanatory text before or
+          after the JSON. Return ONLY the JSON object.]
+      output_key: quest_data
+  visionizer_agent:
+    type: instance
+    models: [gemini-2.0-flash-exp]
+    tools: [analyze_and_generate_character]
+    params:
+      name: visionizer
+      description: Analyzes children's drawings and generates animated characters using Gemini Vision and Imagen
+      instruction: [You are the Visionizer agent in the Storytopia pipeline., 'Your role:', 1. Extract the image_uri from
+          the user's message, 2. Call the analyze_and_generate_character tool with that image_uri, '3. Return ONLY the raw
+          JSON result from the tool - no additional text, no prose, no explanation', 'CRITICAL: Your response must be ONLY
+          valid JSON. Do not add any conversational text like', '"Here''s the result" or "I hope you like it". Just return
+          the JSON string from the tool directly.', 'Example of CORRECT response:', '{"success": true, "analysis": {...},
+          "generated_character_uri": "gs://..."}', 'Example of INCORRECT response:', 'Here''s the animated character! {"success":
+          true, ...}', 'When you receive a message with an image_uri:', 1. Extract the URI from the message, 2. Call analyze_and_generate_character(image_uri),
+        '3. Return the exact JSON string the tool returns, nothing else']
+      output_key: visionizer_result
+
+models:
+  gemini-2.0-flash-exp:
+    type: literal
+    agents: [illustrator_agent, quest_creator_agent, visionizer_agent]
+
+tools:
+  analyze_and_generate_character:
+    type: function
+    agents: [visionizer_agent]
+    params:
+      description: "Tool function for ADK: Analyzes drawing and generates character\n\nArgs:\n    image_uri: GCS URI of the\
+        \ child's drawing\n    \nReturns:\n    JSON string with results"
+  generate_all_scene_illustrations:
+    type: function
+    agents: [illustrator_agent]
+    params:
+      description: |-
+        Tool function: Generates all 8 scene illustrations for the quest
+        Generates first 4 scenes immediately, then waits 3 minutes before generating remaining 4
+
+        Args:
+            quest_json: JSON string of the quest data with 8 scenes
+            character_description: DETAILED character description for strict visual consistency
+
+        Returns:
+            JSON string with image URIs for all 8 scenes
+
+imports:
+  analyze_drawing: tools.vision_tool.analyze_drawing
+  Any: typing.Any
+  BaseModel: pydantic.BaseModel
+  Body: fastapi.Body
+  CORSMiddleware: fastapi.middleware.cors.CORSMiddleware
+  create_character_prompt: tools.vision_tool.create_character_prompt
+  Dict: typing.Dict
+  download_from_gcs: storage_tool.download_from_gcs
+  FastAPI: fastapi.FastAPI
+  File: fastapi.File
+  Form: fastapi.Form
+  generate_character_image: tools.imagen_tool.generate_character_image
+  generate_scene_image: tools.imagen_tool.generate_scene_image
+  GenerativeModel: vertexai.generative_models.GenerativeModel
+  HTTPException: fastapi.HTTPException
+  illustrator_agent: agents.illustrator.illustrator_agent
+  InMemorySessionService: google.adk.sessions.InMemorySessionService
+  json: json
+  List: typing.List
+  LlmAgent: google.adk.agents.LlmAgent
+  load_dotenv: dotenv.load_dotenv
+  os: os
+  Part: vertexai.generative_models.Part
+  quest_creator_agent: agents.quest_creator.quest_creator_agent
+  re: re
+  Runner: google.adk.runners.Runner
+  sys: sys
+  text_to_speech: tools.tts_tool.text_to_speech
+  time: time
+  traceback: traceback
+  types: google.genai.types
+  upload_base64_to_gcs: tools.storage_tool.upload_base64_to_gcs
+  UploadFile: fastapi.UploadFile
+  uvicorn: uvicorn
+  vertexai: vertexai
+  visionizer_agent: agents.visionizer.visionizer_agent
+
+functions:
+  analyze_and_generate_character:
+    type: sync
+    module: agents_service.agents.visionizer
+    args: [image_uri]
+    params:
+      returns: str
+  analyze_drawing:
+    type: sync
+    module: agents_service.tools.vision_tool
+    args: [image_uri]
+    params:
+      returns: Dict
+  create_character_prompt:
+    type: sync
+    module: agents_service.tools.vision_tool
+    args: [analysis]
+    params:
+      returns: str
+  create_quest:
+    type: async
+    module: agents_service.main
+    args: [request]
+  ensure_vertexai_initialized:
+    type: sync
+    module: agents_service.tools.vision_tool
+  extract_json_block:
+    type: sync
+    module: agents_service.main
+    args: [text]
+    params:
+      returns: dict
+  generate_all_scene_illustrations:
+    type: sync
+    module: agents_service.agents.illustrator
+    args: [quest_json, character_description]
+    params:
+      returns: str
+  generate_character:
+    type: async
+    module: agents_service.main
+    args: [drawing_data, user_id]
+  generate_speech:
+    type: async
+    module: agents_service.main
+    args: [request]
+  health_check:
+    type: async
+    module: agents_service.main
+  normalize_agent_response:
+    type: sync
+    module: agents_service.main
+    args: [raw_text]
+    params:
+      returns: dict
+  root:
+    type: async
+    module: agents_service.main
+
+variables:
+  GOOGLE_CLOUD_LOCATION:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [agents_service.tools.vision_tool, agents_service.main]
+  GOOGLE_CLOUD_PROJECT:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [agents_service.tools.vision_tool, agents_service.main]
+  PORT:
+    type: env
+    params:
+      caller: [os.getenv]
+      path: [agents_service.main]
